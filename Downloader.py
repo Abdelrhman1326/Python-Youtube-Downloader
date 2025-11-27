@@ -27,20 +27,41 @@ def download_playlist(url, res_choice="best"):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
+def download_audio(url: str):
+    ydl_opts = {
+        "format": "bestaudio",
+        "outtmpl": "%(title)s.%(ext)s",
+
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "0"
+            }
+        ]
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
+
 def main():
     print("YouTube Downloader (Python + yt-dlp)")
     print("GitHub: https://github.com/yt-dlp/yt-dlp")
 
-    choice = input("Download (1) video or (2) playlist? ").strip()
+    choice = input("Download (1) video, (2) playlist, or (3) Audio? ").strip()
     link = input("Enter the YouTube link: ").strip()
 
-    print("\nAvailable qualities: 360p, 480p, 720p, 1080p, best")
-    res_choice = input("Enter the quality you want: ").strip().lower()
+    res_choice:str = ""
+    if choice == "1" or choice == "2":
+        print("\nAvailable qualities: 360p, 480p, 720p, 1080p, best")
+        res_choice = input("Enter the quality you want: ").strip().lower()
 
     if choice == "1":
         download_video(link, res_choice)
     elif choice == "2":
         download_playlist(link, res_choice)
+    elif choice == "3":
+        download_audio(link)
     else:
         print("Invalid choice!")
 
