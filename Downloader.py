@@ -11,7 +11,6 @@ RESOLUTIONS = {
     "best": "bestvideo+bestaudio/best"
 }
 
-
 def format_size(bytes_val):
     if bytes_val is None or bytes_val == 0: return "Unknown size"
     for unit in ['B', 'KB', 'MB', 'GB']:
@@ -20,14 +19,12 @@ def format_size(bytes_val):
         bytes_val /= 1024
     return f"{bytes_val:.2f} TB"
 
-
 def update_ytdlp():
     print("Checking for yt-dlp updates...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"])
     except Exception as e:
         print(f"Update skipped: {e}")
-
 
 def get_base_opts():
     """
@@ -41,13 +38,10 @@ def get_base_opts():
         "log_tostderr": False,
         "quiet": True,
         "no_warnings": True,
-        # Disguise the script as a browser to help with the JS Runtime/n-sig issues
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
 
-
 def get_info_and_confirm(url, opts, is_playlist=False):
-    # Use extract_flat=True to prevent the long hang during the "Confirm" phase
     extract_opts = opts.copy()
     extract_opts['extract_flat'] = True
 
@@ -61,7 +55,6 @@ def get_info_and_confirm(url, opts, is_playlist=False):
                 entries = list(info['entries'])
                 print(f"\nPlaylist: {title}")
                 print(f"Total Videos: {len(entries)}")
-                # Quick average estimation (50MB per file) to avoid deep-scraping every URL
                 est_size = len(entries) * 50 * 1024 * 1024
                 print(f"Estimated Download Size: ~{format_size(est_size)}")
             else:
@@ -73,7 +66,6 @@ def get_info_and_confirm(url, opts, is_playlist=False):
         except Exception as e:
             print(f"Error gathering info: {e}")
             return False
-
 
 def download_video(url, save_path, res_choice="best"):
     ydl_opts = get_base_opts()
@@ -88,6 +80,25 @@ def download_video(url, save_path, res_choice="best"):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
+def download_audio(url, save_path):
+    """
+    Downloads a single audio track and converts it to MP3.
+    """
+    ydl_opts = get_base_opts()
+    ydl_opts.update({
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "noplaylist": True,
+        "quiet": False,
+    })
+    if get_info_and_confirm(url, ydl_opts):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
 def download_playlist_video_files(url, save_path, res_choice="best"):
     ydl_opts = get_base_opts()
@@ -100,7 +111,6 @@ def download_playlist_video_files(url, save_path, res_choice="best"):
     if get_info_and_confirm(url, ydl_opts, is_playlist=True):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
-
 
 def download_playlist_audio_files(url, save_path):
     ydl_opts = get_base_opts()
@@ -118,6 +128,13 @@ def download_playlist_audio_files(url, save_path):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
+def download_playlist(url, save_path, res_choice="best"):
+    print("\n(1) Video Playlist\n(2) Audio Playlist")
+    c = input("Choice: ").strip()
+    if c == "1":
+        download_playlist_video_files(url, save_path, res_choice)
+    elif c == "2":
+        download_playlist_audio_files(url, save_path)
 
 def main():
     update_ytdlp()
@@ -152,16 +169,6 @@ def main():
         download_audio(link, save_dir)
     else:
         print("Invalid option.")
-
-
-def download_playlist(url, save_path, res_choice="best"):
-    print("\n(1) Video Playlist\n(2) Audio Playlist")
-    c = input("Choice: ").strip()
-    if c == "1":
-        download_playlist_video_files(url, save_path, res_choice)
-    elif c == "2":
-        download_playlist_audio_files(url, save_path)
-
 
 if __name__ == "__main__":
     try:
