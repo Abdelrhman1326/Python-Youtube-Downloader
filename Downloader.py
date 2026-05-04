@@ -193,7 +193,6 @@ def download_playlist(url, save_path, res_choice="best"):
 
 
 def main():
-    update_ytdlp()
     print("\n--- YouTube Downloader & H.264 Converter ---")
 
     choice = input("Download (1) Video, (2) Playlist, or (3) Audio? ").strip()
@@ -224,7 +223,15 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        update_ytdlp()
+
+        terminate:bool = False
+        while(not terminate):
+            main()
+            exit = input("Do you want to terminate? (Y/N) ").strip().lower()
+            if exit == "y":
+                terminate = True
+
     except KeyboardInterrupt:
         print("\n\nExiting...")
         sys.exit(0)
