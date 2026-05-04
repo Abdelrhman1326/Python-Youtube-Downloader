@@ -1,20 +1,26 @@
+#!/bin/bash
+
+# Get the directory where the script is located to handle spaces in paths
+PARENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PARENT_DIR"
+
 echo "Setting up Python Youtube Downloader..."
 
-if [ -d ".venv/bin/Activate" ]; then
-    echo "Cleaning up accidental 'Activate' folder..."
-    rm -r .venv/bin/Activate
-fi
-
-if [ ! -d ".venv" ]; then
+# Use lowercase 'activate' (standard for venv)
+if [ -d ".venv/bin/activate" ]; then
+    echo "Environment exists."
+else
     echo "Creating fresh virtual environment..."
     python3 -m venv .venv
 fi
 
 echo "Activating virtual environment..."
-source .venv/bin/activate
+# Quote the path to handle spaces
+source "./.venv/bin/activate"
 
 echo "Installing/verifying requirements..."
-pip install -r requirements.txt
+# Always use 'python -m pip' inside scripts for better reliability
+python3 -m pip install -r requirements.txt
 
 echo "Starting Downloader.py..."
 echo "-----------------------------------"
