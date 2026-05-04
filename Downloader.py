@@ -121,11 +121,27 @@ def download_video(url, save_path, res_choice="best"):
             if not os.path.exists(original_file):
                 original_file = os.path.splitext(original_file)[0] + ".mp4"
 
-            # Trigger Conversion and Cleanup
-            converted = convert_to_h264(original_file)
-            if converted and os.path.exists(converted):
-                print(f"Cleaning up original file...")
-                os.remove(original_file)
+            h264:str = input("Do you want to convert the downloaded video codec to h264 (better for compatability) ? ").strip().lower()
+            if h264 == 'y':
+                # Double-check existence because yt-dlp file extensions can be unpredictable
+                if not os.path.exists(original_file):
+                    # Fallback: check if an .mp4 version exists if the predicted one doesn't
+                    base_path = os.path.splitext(original_file)[0]
+                    if os.path.exists(f"{base_path}.mp4"):
+                        original_file = f"{base_path}.mp4"
+
+                if os.path.exists(original_file):
+                    converted = convert_to_h264(original_file)
+
+                    # Only delete original if the conversion actually created a new file
+                    if converted and os.path.exists(converted):
+                        try:
+                            print(f"Cleaning up original file...")
+                            os.remove(original_file)
+                        except OSError as e:
+                            print(f"Cleanup failed: {e}")
+                else:
+                    print(f"Error: Could not find downloaded file at {original_file}")
 
 
 def download_audio(url, save_path):
