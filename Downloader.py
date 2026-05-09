@@ -4,11 +4,11 @@ import sys
 import os
 
 RESOLUTIONS = {
-    "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]",
-    "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
-    "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-    "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
-    "best": "bestvideo+bestaudio/best"
+    "360p": "bestvideo[vcodec^=avc1][height<=360]+bestaudio/bestvideo[height<=360]+bestaudio/best[height<=360]",
+    "480p": "bestvideo[vcodec^=avc1][height<=480]+bestaudio/bestvideo[height<=480]+bestaudio/best[height<=480]",
+    "720p": "bestvideo[vcodec^=avc1][height<=720]+bestaudio/bestvideo[height<=720]+bestaudio/best[height<=720]",
+    "1080p": "bestvideo[vcodec^=avc1][height<=1080]+bestaudio/bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    "best": "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"
 }
 
 def convert_to_h264(input_file, output_directory=None):
@@ -106,7 +106,7 @@ def get_info_and_confirm(url, opts, is_playlist=False):
 def download_video(url, save_path, res_choice="best"):
     ydl_opts = get_base_opts()
     ydl_opts.update({
-        "format": RESOLUTIONS.get(res_choice, "bestvideo+bestaudio/best"),
+        "format": RESOLUTIONS.get(res_choice, "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"),
         "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
         "merge_output_format": "mp4",
         "noplaylist": True,
@@ -121,7 +121,8 @@ def download_video(url, save_path, res_choice="best"):
             if not os.path.exists(original_file):
                 original_file = os.path.splitext(original_file)[0] + ".mp4"
 
-            h264:str = input("Do you want to convert the downloaded video codec to h264 (better for compatability) ? ").strip().lower()
+            # h264:str = input("Do you want to convert the downloaded video codec to h264 (better for compatability) ? ").strip().lower()
+            h264:str = 'n'
             if h264 == 'y':
                 # Double-check existence because yt-dlp file extensions can be unpredictable
                 if not os.path.exists(original_file):
@@ -164,7 +165,7 @@ def download_audio(url, save_path):
 def download_playlist_video_files(url, save_path, res_choice="best"):
     ydl_opts = get_base_opts()
     ydl_opts.update({
-        "format": RESOLUTIONS.get(res_choice, "bestvideo+bestaudio/best"),
+        "format": RESOLUTIONS.get(res_choice, "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"),
         "outtmpl": os.path.join(save_path, "%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"),
         "merge_output_format": "mp4",
     })
@@ -209,7 +210,7 @@ def download_playlist(url, save_path, res_choice="best"):
 
 
 def main():
-    print("\n--- YouTube Downloader & H.264 Converter ---")
+    print("\n--- YouTube Downloader ---")
 
     choice = input("Download (1) Video, (2) Playlist, or (3) Audio? ").strip()
     link = input("Enter link: ").strip()
