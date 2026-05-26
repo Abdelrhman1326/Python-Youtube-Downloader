@@ -58,7 +58,3 @@ Simply run the start script, and the interactive CLI will guide you through the 
 - **yt-dlp**: Used for high-speed metadata extraction and downloading.
 - **FFmpeg**: Handles the merging of separate video and audio streams into a single MP4 file.
 - **Virtual Environment**: The scripts automatically create and manage a `.venv` folder to keep your system Python clean.
-
-## 📄 License
-
-This project is intended for personal use. Please respect the terms of service of the content platforms you use.
