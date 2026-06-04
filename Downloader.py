@@ -85,7 +85,7 @@ def get_base_opts():
 
 def get_info_and_confirm(url, opts, is_playlist=False):
     extract_opts = opts.copy()
-    extract_opts['extract_flat'] = True
+    extract_opts['extract_flat'] = False
     with yt_dlp.YoutubeDL(extract_opts) as ydl:
         try:
             print("Fetching metadata...")
@@ -93,6 +93,16 @@ def get_info_and_confirm(url, opts, is_playlist=False):
             if is_playlist and 'entries' in info:
                 print(f"\nPlaylist: {info.get('title')}")
                 print(f"Total Videos: {len(list(info['entries']))}")
+
+                totalSize:int = 0 # summation of video sizes
+                video_entries = list(info['entries'])
+                for video in video_entries:
+                    if video is not None:
+                        size = video.get('filesize') or video.get('filesize_approx') or 0
+                        totalSize += size
+
+                print(f"Estimated Size: {format_size(totalSize)}")
+
             else:
                 print(f"\nTitle: {info.get('title')}")
                 size = info.get('filesize') or info.get('filesize_approx') or 0
@@ -178,10 +188,6 @@ def download_playlist_video_files(url, save_path, res_choice="best"):
                     file_path = ydl.prepare_filename(entry)
                     if not os.path.exists(file_path):
                         file_path = os.path.splitext(file_path)[0] + ".mp4"
-
-                    converted = convert_to_h264(file_path)
-                    if converted:
-                        os.remove(file_path)
 
 
 def download_playlist_audio_files(url, save_path):
