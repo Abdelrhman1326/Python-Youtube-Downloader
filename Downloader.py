@@ -120,6 +120,7 @@ def download_video(url, save_path, res_choice="best"):
         "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
         "merge_output_format": "mp4",
         "noplaylist": True,
+        "overwrites": True,  # Ensures it resets previous download cache hooks
     })
 
     if get_info_and_confirm(url, ydl_opts):
