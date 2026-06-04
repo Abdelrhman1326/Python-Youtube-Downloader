@@ -182,12 +182,26 @@ def download_playlist_video_files(url, save_path, res_choice="best"):
     if get_info_and_confirm(url, ydl_opts, is_playlist=True):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            if 'entries' in info:
+
+            # --- POST-DOWNLOAD OPTIMIZATION LOOP ---
+            h264: str = 'n'  # Change to 'y' if you want playlist compatibility conversion
+            if h264 == 'y' and 'entries' in info:
+                print("\n--- Starting Playlist Post-Processing ---")
                 for entry in info['entries']:
                     if entry is None: continue
+
                     file_path = ydl.prepare_filename(entry)
+                    # Handle fallback if extension merged into .mp4
                     if not os.path.exists(file_path):
                         file_path = os.path.splitext(file_path)[0] + ".mp4"
+
+                    if os.path.exists(file_path):
+                        converted = convert_to_h264(file_path)
+                        if converted and os.path.exists(converted):
+                            try:
+                                os.remove(file_path)
+                            except OSError as e:
+                                print(f"Cleanup failed for {file_path}: {e}")
 
 
 def download_playlist_audio_files(url, save_path):
@@ -206,11 +220,13 @@ def download_playlist_audio_files(url, save_path):
             ydl.download([url])
 
 
-def download_playlist(url, save_path, res_choice="best"):
+def download_playlist(url, save_path):
     print("\n(1) Video Playlist\n(2) Audio Playlist")
     c = input("Choice: ").strip()
     if c == "1":
-        download_playlist_video_files(url, save_path, res_choice)
+        print("Qualities: 360p, 480p, 720p, 1080p, best")
+        res = input("Choice: ").strip().lower()
+        download_playlist_video_files(url, save_path, res)
     elif c == "2":
         download_playlist_audio_files(url, save_path)
 
@@ -237,7 +253,7 @@ def main():
         res = input("Choice: ").strip().lower()
         download_video(link, save_dir, res)
     elif choice == "2":
-        download_playlist(link, save_dir, "best")
+        download_playlist(link, save_dir)
     elif choice == "3":
         download_audio(link, save_dir)
     else:
