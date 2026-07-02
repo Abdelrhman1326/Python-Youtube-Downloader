@@ -263,7 +263,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        update_ytdlp()
+        # update_ytdlp()
 
         terminate:bool = False
         while(not terminate):
