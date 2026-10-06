@@ -1,0 +1,292 @@
+import subprocess
+import yt_dlp
+import sys
+import os
+
+# Detect if we are running in automated mode based on terminal arguments
+AUTO_MODE = len(sys.argv) > 1
+
+RESOLUTIONS = {
+    "360p": "bestvideo[vcodec^=avc1][height<=360]+bestaudio/bestvideo[height<=360]+bestaudio/best[height<=360]",
+    "480p": "bestvideo[vcodec^=avc1][height<=480]+bestaudio/bestvideo[height<=480]+bestaudio/best[height<=480]",
+    "720p": "bestvideo[vcodec^=avc1][height<=720]+bestaudio/bestvideo[height<=720]+bestaudio/best[height<=720]",
+    "1080p": "bestvideo[vcodec^=avc1][height<=1080]+bestaudio/bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    "best": "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"
+}
+
+def convert_to_h264(input_file, output_directory=None):
+    if not os.path.exists(input_file):
+        return None
+
+    file_name = os.path.basename(input_file)
+    name_no_ext = os.path.splitext(file_name)[0]
+
+    if output_directory is None:
+        output_directory = os.path.dirname(input_file)
+
+    output_file = os.path.join(output_directory, f"{name_no_ext}_h264.mp4")
+
+    command = [
+        'ffmpeg',
+        '-i', input_file,
+        '-c:v', 'libx264',
+        '-crf', '23',
+        '-preset', 'medium',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-pix_fmt', 'yuv420p',
+        '-y',
+        output_file
+    ]
+
+    try:
+        print(f"\n--- Starting H.264 Conversion: {file_name} ---")
+        subprocess.run(command, check=True)
+        print(f"Conversion Successful: {output_file}")
+        return output_file
+    except subprocess.CalledProcessError as e:
+        print(f"Error during conversion: {e}")
+        return None
+    except FileNotFoundError:
+        print("Error: FFmpeg not found. Ensure it's installed and in your PATH.")
+        return None
+
+
+def format_size(bytes_val):
+    if bytes_val is None or bytes_val == 0: return "Unknown size"
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if bytes_val < 1024:
+            return f"{bytes_val:.2f} {unit}"
+        bytes_val /= 1024
+    return f"{bytes_val:.2f} TB"
+
+
+def update_ytdlp():
+    print("Checking for yt-dlp updates...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"])
+    except Exception as e:
+        print(f"Update skipped: {e}")
+
+
+def get_base_opts():
+    return {
+        "socket_timeout": 20,
+        "retries": 10,
+        "nocheckcertificate": True,
+        "ignoreerrors": True,
+        "log_tostderr": False,
+        "quiet": True,
+        "no_warnings": True,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
+
+
+def get_info_and_confirm(url, opts, is_playlist=False):
+    extract_opts = opts.copy()
+    extract_opts['extract_flat'] = False
+    with yt_dlp.YoutubeDL(extract_opts) as ydl:
+        try:
+            print("Fetching metadata...")
+            info = ydl.extract_info(url, download=False)
+            if is_playlist and 'entries' in info:
+                print(f"\nPlaylist: {info.get('title')}")
+                print(f"Total Videos: {len(list(info['entries']))}")
+
+                totalSize:int = 0
+                video_entries = list(info['entries'])
+                for video in video_entries:
+                    if video is not None:
+                        size = video.get('filesize') or video.get('filesize_approx') or 0
+                        totalSize += size
+
+                print(f"Estimated Size: {format_size(totalSize)}")
+
+            else:
+                print(f"\nTitle: {info.get('title')}")
+                size = info.get('filesize') or info.get('filesize_approx') or 0
+                print(f"Estimated Size: {format_size(size)}")
+            
+            # Automatically proceed if in AUTO_MODE
+            if AUTO_MODE:
+                return True
+            return input("\nProceed? (y/n): ").strip().lower() == 'y'
+        except Exception as e:
+            print(f"Error: {e}")
+            return False
+
+
+def download_video(url, save_path, res_choice="best"):
+    ydl_opts = get_base_opts()
+    ydl_opts.update({
+        "format": RESOLUTIONS.get(res_choice, "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"),
+        "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "overwrites": True, 
+    })
+
+    if get_info_and_confirm(url, ydl_opts):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            original_file = ydl.prepare_filename(info)
+
+            if not os.path.exists(original_file):
+                original_file = os.path.splitext(original_file)[0] + ".mp4"
+
+            h264:str = 'n'
+            if h264 == 'y':
+                if not os.path.exists(original_file):
+                    base_path = os.path.splitext(original_file)[0]
+                    if os.path.exists(f"{base_path}.mp4"):
+                        original_file = f"{base_path}.mp4"
+
+                if os.path.exists(original_file):
+                    converted = convert_to_h264(original_file)
+                    if converted and os.path.exists(converted):
+                        try:
+                            print(f"Cleaning up original file...")
+                            os.remove(original_file)
+                        except OSError as e:
+                            print(f"Cleanup failed: {e}")
+                else:
+                    print(f"Error: Could not find downloaded file at {original_file}")
+
+
+def download_audio(url, save_path):
+    ydl_opts = get_base_opts()
+    ydl_opts.update({
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "noplaylist": True,
+    })
+    if get_info_and_confirm(url, ydl_opts):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+
+def download_playlist_video_files(url, save_path, res_choice="best"):
+    ydl_opts = get_base_opts()
+    ydl_opts.update({
+        "format": RESOLUTIONS.get(res_choice, "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best"),
+        "outtmpl": os.path.join(save_path, "%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"),
+        "merge_output_format": "mp4",
+    })
+    if get_info_and_confirm(url, ydl_opts, is_playlist=True):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+
+            h264: str = 'n'  
+            if h264 == 'y' and 'entries' in info:
+                print("\n--- Starting Playlist Post-Processing ---")
+                for entry in info['entries']:
+                    if entry is None: continue
+
+                    file_path = ydl.prepare_filename(entry)
+                    if not os.path.exists(file_path):
+                        file_path = os.path.splitext(file_path)[0] + ".mp4"
+
+                    if os.path.exists(file_path):
+                        converted = convert_to_h264(file_path)
+                        if converted and os.path.exists(converted):
+                            try:
+                                os.remove(file_path)
+                            except OSError as e:
+                                print(f"Cleanup failed for {file_path}: {e}")
+
+
+def download_playlist_audio_files(url, save_path):
+    ydl_opts = get_base_opts()
+    ydl_opts.update({
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(save_path, "%(playlist_title)s/%(playlist_index)s - %(title)s.%(ext)s"),
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192"
+        }],
+    })
+    if get_info_and_confirm(url, ydl_opts, is_playlist=True):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+
+def download_playlist(url, save_path):
+    if AUTO_MODE:
+        # Default to Audio (2) if no 4th argument is given
+        c = sys.argv[4] if len(sys.argv) > 4 else "2"
+    else:
+        print("\n(1) Video Playlist\n(2) Audio Playlist")
+        c = input("Choice: ").strip()
+        
+    if c == "1":
+        if AUTO_MODE:
+            res = sys.argv[5] if len(sys.argv) > 5 else "best"
+        else:
+            print("Qualities: 360p, 480p, 720p, 1080p, best")
+            res = input("Choice: ").strip().lower()
+        download_playlist_video_files(url, save_path, res)
+    elif c == "2":
+        download_playlist_audio_files(url, save_path)
+
+
+def main():
+    print("\n--- YouTube Downloader ---")
+
+    if AUTO_MODE:
+        choice = sys.argv[1]
+        link = sys.argv[2] if len(sys.argv) > 2 else ""
+        save_dir = sys.argv[3] if len(sys.argv) > 3 else os.getcwd()
+        if not save_dir:
+            save_dir = os.getcwd()
+    else:
+        choice = input("Download (1) Video, (2) Playlist, or (3) Audio? ").strip()
+        link = input("Enter link: ").strip()
+        save_dir = input("Enter save directory (blank for current folder): ").strip()
+        if not save_dir:
+            save_dir = os.getcwd()
+
+    if not link:
+        print("URL is required.")
+        return
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+
+    if choice == "1":
+        if AUTO_MODE:
+            res = sys.argv[4] if len(sys.argv) > 4 else "best"
+        else:
+            print("Qualities: 360p, 480p, 720p, 1080p, best")
+            res = input("Choice: ").strip().lower()
+        download_video(link, save_dir, res)
+    elif choice == "2":
+        download_playlist(link, save_dir)
+    elif choice == "3":
+        download_audio(link, save_dir)
+    else:
+        print("Invalid option.")
+
+
+if __name__ == "__main__":
+    try:
+        # If automated, run once and close
+        if AUTO_MODE:
+            main()
+        else:
+            # If interactive, keep looping until user says 'Y' to terminate
+            terminate:bool = False
+            while(not terminate):
+                main()
+                exit_choice = input("Do you want to terminate? (Y/N) ").strip().lower()
+                if exit_choice == "y":
+                    terminate = True
+
+    except KeyboardInterrupt:
+        print("\n\nExiting...")
+        sys.exit(0)
